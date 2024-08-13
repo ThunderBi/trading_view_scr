@@ -1,5 +1,11 @@
 from model.common import *
 from datetime import datetime
+import logging
+
+logging.basicConfig(filename='logs/db_indonesia.log',
+                    level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 table_name = 'indonesia_trading_screener'
 columns = [
@@ -75,9 +81,7 @@ columns = [
 ]
 
 
-
 def save_entire_world_data(bulk_insert):
-    print(bulk_insert[0])
     columns = ', '.join(bulk_insert[0].keys())
     update_columns = ', '.join([f"{key} = ?" for key in bulk_insert[0].keys()])
     placeholders = ', '.join('?' * len(bulk_insert[0]))
@@ -98,13 +102,28 @@ def save_entire_world_data(bulk_insert):
         return result
 
     except pyodbc.Error as e:
-        print(f"Error inserting/updating data: {e}")
+        logging.error(f"Error inserting/updating data: {e}")
         return []
 
     finally:
         if 'cursor' in locals() and cursor is not None:
             cursor.close()
 
+
+def call_sp_calculate():
+    try:
+        cursor = conn.cursor()
+        result = cursor.callproc(".s_IndonesiaTrading_Calculate", [])
+        conn.commit()
+        return result
+
+    except pyodbc.Error as e:
+        logging.error(f"Error call cursor data: {e}")
+        return []
+
+    finally:
+        if 'cursor' in locals() and cursor is not None:
+            cursor.close()
 
 def create_value(data):
     return [tuple(item.values()) for item in data]

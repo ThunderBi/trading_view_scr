@@ -8,7 +8,7 @@ password = 'tradingview123987#'
 
 conn = pyodbc.connect(
     'DRIVER=SQL Server;'
-    f'SERVER=DESKTOP-1GP5JPT;'
+    f'SERVER={server};'
     f'DATABASE={database};'
     'UID=Tradingview;'
     'PWD=tradingview123987#;'
