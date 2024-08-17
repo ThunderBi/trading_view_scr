@@ -1,3 +1,4 @@
+from datetime import datetime
 
 url = 'https://scanner.tradingview.com/global/scan'
 
@@ -105,15 +106,42 @@ mapper_indonesia_trading = {
     'william_percentage_range_1M': 'W.R|1M',
 }
 
+
+def format_value(value):
+    """Format the value according to specified rules:
+       - If the value is empty or None, return 0.
+       - If the value is a float, limit decimal places to 5.
+    """
+    if value is None or value == '':
+        return 0
+
+    try:
+        # Attempt to convert value to float for decimal handling
+        if '.' in str(value):
+            float_value = float(value)
+            # Round to 5 decimal places
+            return round(float_value, 5)
+        return value
+    except ValueError:
+        # If conversion fails, return the original value
+        return value
+
+
 def get_mapping(columns, mapper, request, responses):
     mappings = []
     for response in responses:
         mapping = {}
+        mapping['date'] = datetime.now().strftime('%Y-%m-%d')
         for column in columns:
             mapped_value = mapper[column]
             index = request.index(mapped_value)
             value = response['d'][index]
-            mapping[column] = value
+            value = format_value(value)
+            if (column == 'sector' or column.endswith('_currency')) and (value is None or value == ''
+                                                                         or value == 0):
+                value = ''
 
+            mapping[column] = value
+        # mapping['created_at'] = datetime.now()
         mappings.append(mapping)
     return mappings

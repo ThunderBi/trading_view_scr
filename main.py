@@ -2,13 +2,13 @@ import schedule
 import time
 from datetime import datetime
 from fetcher.health_check import health_check
-from fetcher.entire_world import call_trading_view
-from fetcher.indonesia_trading import call_trading_view_indonesia_trading
+from fetcher.entire_world import call_tv_world
+from fetcher.indonesia_trading import call_tv_indonesia
 from model.holiday import get_holidays
 from model.feature_flag import get_feature_flag
 
 
-call_trading_view_indonesia_trading()
+call_tv_indonesia()
 
 def is_holiday():
     holidays = get_holidays()
@@ -33,12 +33,12 @@ def is_within_time_range(start_time, end_time):
 
 def schedule_call_trading_view():
     if not is_holiday():
-        call_trading_view()
+        call_tv_world()
 
 
 def schedule_call_trading_view_indonesia():
     if not is_holiday():
-        call_trading_view_indonesia_trading()
+        call_tv_indonesia()
 
 
 def scheduled_task_indonesia():

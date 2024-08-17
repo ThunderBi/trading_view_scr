@@ -1,16 +1,16 @@
 import pyodbc
 
-server = '110.50.84.98,11114'
-# server = 'localhost'
+# server = '110.50.84.98,11114'
+server = 'DESKTOP-1GP5JPT'
 database = 'TradingView'
-username = 'Tradingview'
-password = 'tradingview123987#'
+username = 'root'
+password = 'root'
+# username = 'Tradingview'
+# password = 'tradingview123987#'
 
-conn = pyodbc.connect(
-    'DRIVER=SQL Server;'
-    f'SERVER={server};'
-    f'DATABASE={database};'
-    'UID=Tradingview;'
-    'PWD=tradingview123987#;'
-    'TrustServerCertificate=yes;'
-)
+conn_str = 'DRIVER=SQL Server;'\
+           f'SERVER={server};'\
+           f'DATABASE={database};'\
+           f'UID={username};'\
+           f'PWD={password};'\
+           'TrustServerCertificate=yes;'

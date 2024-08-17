@@ -6,7 +6,6 @@ logging.basicConfig(filename='logs/db_world.log',
                     level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 table_name = 'entire_world_screener'
 columns = [
     'symbol',
@@ -45,9 +44,9 @@ def save_entire_world_data(bulk_insert):
     columns = ', '.join(bulk_insert[0].keys())
     update_columns = ', '.join([f"{key} = ?" for key in bulk_insert[0].keys()])
     placeholders = ', '.join('?' * (len(bulk_insert[0])))
-    str_values = ', '.join([f"({placeholders})"] * len(bulk_insert))
+    formatted_items = [f"({','.join(map(str, item))})" for item in bulk_insert]
 
-    sql = (f"INSERT INTO {table_name} ({columns}) VALUES {str_values};")
+    sql = (f"INSERT INTO {table_name} ({columns}) VALUES {formatted_items};")
 
     try:
         cursor = conn.cursor()
@@ -65,6 +64,46 @@ def save_entire_world_data(bulk_insert):
             cursor.close()
 
 
+def format_value(value):
+    if isinstance(value, str):
+        return f"'{value.replace('\'', '\'\'')}'"  # Escape single quotes in strings
+    else:
+        return str(value)
+
+
+def safe_bulk(bulk_insert):
+    columns = ', '.join(bulk_insert[0].keys())
+    formatted_items = [f"({','.join(map(str, item.values()))})" for item in bulk_insert]
+    formatted_rows = []
+
+    for item in bulk_insert:
+        formatted_values = [format_value(value) for value in item.values()]
+        formatted_row = f"({','.join(formatted_values)})"
+        formatted_rows.append(formatted_row)
+
+    result = ','.join(formatted_rows)
+
+    sql = (f"INSERT INTO {table_name} ({columns}) "
+           f"VALUES {result};")
+    # logging.info(sql)
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        result = cursor.execute(sql)
+        conn.commit()
+        return result
+
+    except pyodbc.Error as e:
+        logging.error(f"Error inserting/updating data: {e}")
+        return []
+
+    finally:
+        if 'cursor' in locals() and cursor is not None:
+            cursor.close()
+
+        if 'conn' in locals() and conn is not None:
+            conn.close()
+
+
 def create_value(data):
     return [item for sublist in data for item in sublist.values()]
-

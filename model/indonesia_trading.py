@@ -1,3 +1,5 @@
+import pyodbc
+
 from model.common import *
 from datetime import datetime
 import logging
@@ -80,24 +82,82 @@ columns = [
     'william_percentage_range_1M'
 ]
 
-
-def save_entire_world_data(bulk_insert):
-    columns = ', '.join(bulk_insert[0].keys())
-    update_columns = ', '.join([f"{key} = ?" for key in bulk_insert[0].keys()])
-    placeholders = ', '.join('?' * len(bulk_insert[0]))
-
-    sql = (f"MERGE INTO {table_name} AS target "
-           f"USING (SELECT ? AS symbol, ? AS [date]) AS source "
-           f"ON (target.symbol = source.symbol AND target.[date] = source.[date]) "
-           f"WHEN MATCHED THEN "
-           f"UPDATE SET {update_columns} "
-           f"WHEN NOT MATCHED THEN "
-           f"INSERT ({columns}) VALUES ({placeholders});")
+def delete_today():
+    delete_sql = f"DELETE FROM {table_name} WHERE [date] = ?;"
 
     try:
+        conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        values = create_value(bulk_insert)
-        result = cursor.executemany(sql, [tuple([v[0], datetime.now().strftime("%Y-%m-%d")] + list(v) + list(v)) for v in values])
+        cursor.execute(delete_sql, datetime.now().strftime("%Y-%m-%d"))
+        conn.commit()
+        return cursor.rowcount
+
+    except pyodbc.Error as e:
+        logging.error(f"Error deleting/inserting data: {e}")
+        return 0
+
+    finally:
+        if 'cursor' in locals() and cursor is not None:
+            cursor.close()
+        if 'conn' in locals() and conn is not None:
+            conn.close()
+
+
+def save_csv(csv_file_path):
+    print(csv_file_path)
+    # Bulk insert SQL command
+    bulk_insert_query = f"""
+    BULK INSERT {table_name}
+    FROM '{csv_file_path}'
+    WITH (
+        FIELDTERMINATOR = ',',
+        ROWTERMINATOR = '0x0A',
+        FIRSTROW = 2
+    );
+    """
+
+    # Execute the bulk insert command
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute(bulk_insert_query)
+        conn.commit()
+        print("Bulk insert completed successfully.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        if 'cursor' in locals() and cursor is not None:
+            cursor.close()
+        if 'conn' in locals() and conn is not None:
+            conn.close()
+
+
+def format_value(value):
+    if isinstance(value, str):
+        return f"'{value.replace('\'', '\'\'')}'"  # Escape single quotes in strings
+    else:
+        return str(value)
+
+def safe_bulk(bulk_insert):
+    columns = ', '.join(bulk_insert[0].keys())
+    formatted_items = [f"({','.join(map(str, item.values()))})" for item in bulk_insert]
+    formatted_rows = []
+
+    for item in bulk_insert:
+        formatted_values = [format_value(value) for value in item.values()]
+        formatted_row = f"({','.join(formatted_values)})"
+        formatted_rows.append(formatted_row)
+
+
+    result = ','.join(formatted_rows)
+
+    sql = (f"INSERT INTO {table_name} ({columns}) "
+           f"VALUES {result};")
+
+    try:
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        result = cursor.execute(sql)
         conn.commit()
         return result
 
@@ -109,21 +169,35 @@ def save_entire_world_data(bulk_insert):
         if 'cursor' in locals() and cursor is not None:
             cursor.close()
 
+        if 'conn' in locals() and conn is not None:
+            conn.close()
 
-def call_sp_calculate():
+
+def save_entire_world_data(bulk_insert):
+    columns = ', '.join(bulk_insert[0].keys())
+    update_columns = ', '.join([f"{key} = ?" for key in bulk_insert[0].keys()])
+    placeholders = ', '.join('?' * (len(bulk_insert[0])))
+
+    sql = (f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders});")
+
     try:
+        conn = pyodbc.connect(conn_str)
         cursor = conn.cursor()
-        result = cursor.callproc(".s_IndonesiaTrading_Calculate", [])
+        values = create_value(bulk_insert)
+        result = cursor.executemany(sql, values)
         conn.commit()
         return result
 
     except pyodbc.Error as e:
-        logging.error(f"Error call cursor data: {e}")
+        logging.error(f"Error inserting/updating data: {e}")
         return []
 
     finally:
         if 'cursor' in locals() and cursor is not None:
             cursor.close()
+        if 'conn' in locals() and conn is not None:
+            conn.close()
+
 
 def create_value(data):
     return [tuple(item.values()) for item in data]
